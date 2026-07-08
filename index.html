@@ -1,1 +1,185 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>無事故無違反</title>
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#14264A">
+<style>
+body{
+margin:0;
+font-family:"Hiragino Sans","Yu Gothic",Arial,sans-serif;
+background:linear-gradient(160deg,#14264A 0%,#1d3768 100%);
+color:#222;
+min-height:100vh;
+display:flex;
+align-items:center;
+justify-content:center;
+padding:20px;
+box-sizing:border-box;
+}
+.card{
+background:#fff;
+border-radius:24px;
+padding:36px 30px;
+max-width:420px;
+width:100%;
+text-align:center;
+box-shadow:0 16px 40px rgba(0,0,0,.25);
+}
+h1{
+margin:0 0 6px;
+font-size:22px;
+color:#14264A;
+letter-spacing:0.05em;
+}
+.subtitle{
+margin:0 0 28px;
+font-size:13px;
+color:#888;
+}
+.counterBox{
+background:#14264A;
+border-radius:20px;
+padding:34px 10px;
+margin-bottom:18px;
+}
+.bigNumber{
+font-size:76px;
+font-weight:900;
+color:#FFB800;
+line-height:1;
+}
+.unit{
+font-size:16px;
+color:#fff;
+font-weight:700;
+margin-top:6px;
+}
+.startDateText{
+font-size:13px;
+color:#888;
+margin-bottom:22px;
+}
+.bestBox{
+display:flex;
+align-items:center;
+justify-content:space-between;
+background:#F5F5F7;
+border-radius:14px;
+padding:14px 18px;
+margin-bottom:26px;
+font-size:14px;
+color:#444;
+}
+.bestBox strong{
+font-size:20px;
+color:#14264A;
+}
+button{
+width:100%;
+padding:16px;
+font-size:15px;
+font-weight:700;
+border:none;
+border-radius:14px;
+cursor:pointer;
+font-family:inherit;
+}
+.resetBtn{
+background:#E0483E;
+color:#fff;
+}
+.resetBtn:hover{
+background:#c73a30;
+}
+.hint{
+margin-top:16px;
+font-size:12px;
+color:#999;
+line-height:1.7;
+}
+</style>
+</head>
+<body>
 
+<div class="card">
+<h1>🛡 無事故無違反</h1>
+<p class="subtitle">安全運転の記録</p>
+
+<div class="counterBox">
+<div class="bigNumber" id="dayCount">0</div>
+<div class="unit">日 達成中</div>
+</div>
+
+<p class="startDateText" id="startDateText"></p>
+
+<div class="bestBox">
+<span>これまでの最長記録</span>
+<strong id="bestCount">0日</strong>
+</div>
+
+<button class="resetBtn" onclick="resetCounter()">事故・違反が発生した(記録をリセット)</button>
+<p class="hint">記録はこの端末のブラウザに保存されます。<br>他のパソコンやスマホとは共有されません。</p>
+</div>
+
+<script>
+const KEY_START = "bujibuihan_startDate";
+const KEY_BEST = "bujibuihan_bestStreak";
+
+function todayDateOnly(){
+const d = new Date();
+d.setHours(0,0,0,0);
+return d;
+}
+
+function getStartDate(){
+let stored = localStorage.getItem(KEY_START);
+if(!stored){
+stored = todayDateOnly().toISOString().slice(0,10);
+localStorage.setItem(KEY_START, stored);
+}
+const d = new Date(stored + "T00:00:00");
+return d;
+}
+
+function getBest(){
+return parseInt(localStorage.getItem(KEY_BEST) || "0", 10);
+}
+
+function formatDate(d){
+return d.getFullYear() + "年" + (d.getMonth()+1) + "月" + d.getDate() + "日";
+}
+
+function daysBetween(d1, d2){
+const msPerDay = 24*60*60*1000;
+return Math.round((d2 - d1) / msPerDay);
+}
+
+function updateDisplay(){
+const start = getStartDate();
+const today = todayDateOnly();
+const days = Math.max(0, daysBetween(start, today));
+
+dayCount.textContent = days;
+startDateText.textContent = "記録開始日: " + formatDate(start);
+
+const best = Math.max(getBest(), days);
+localStorage.setItem(KEY_BEST, String(best));
+bestCount.textContent = best + "日";
+}
+
+function resetCounter(){
+if(!confirm("記録をリセットして、今日から数え直しますか？")) return;
+const today = todayDateOnly().toISOString().slice(0,10);
+localStorage.setItem(KEY_START, today);
+updateDisplay();
+}
+
+updateDisplay();
+</script>
+</body>
+</html>
