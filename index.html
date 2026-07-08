@@ -24,11 +24,12 @@ box-sizing:border-box;
 .card{
 background:#fff;
 border-radius:24px;
-padding:36px 30px;
+padding:52px 30px 36px;
 max-width:420px;
 width:100%;
 text-align:center;
 box-shadow:0 16px 40px rgba(0,0,0,.25);
+position:relative;
 }
 h1{
 margin:0 0 6px;
@@ -105,16 +106,20 @@ margin-bottom:14px;
 display:none;
 align-items:center;
 justify-content:center;
-gap:8px;
+gap:5px;
 background:#0b63ce;
 color:#fff;
 border:none;
 border-radius:999px;
-padding:12px 22px;
-font-size:14px;
+padding:9px 16px;
+font-size:12.5px;
 font-weight:700;
 cursor:pointer;
 font-family:inherit;
+position:absolute;
+top:14px;
+right:14px;
+box-shadow:0 4px 10px rgba(11,99,206,.35);
 }
 .installHelp{
 display:none;
@@ -167,7 +172,7 @@ line-height:1.7;
 </div>
 
 <div class="card">
-<button class="installBtn" id="installBtn" onclick="handleInstallClick()" style="margin:0 auto 16px;">📲 アプリを追加</button>
+<button class="installBtn" id="installBtn" onclick="handleInstallClick()">📲 アプリ追加</button>
 <h1>🛡 無事故無違反</h1>
 <p class="subtitle">安全運転の記録</p>
 
