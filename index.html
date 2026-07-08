@@ -96,6 +96,58 @@ color:#fff;
 .resetBtn:hover{
 background:#c73a30;
 }
+.installBar{
+display:flex;
+justify-content:center;
+margin-bottom:14px;
+}
+.installBtn{
+display:none;
+align-items:center;
+justify-content:center;
+gap:8px;
+background:#0b63ce;
+color:#fff;
+border:none;
+border-radius:999px;
+padding:12px 22px;
+font-size:14px;
+font-weight:700;
+cursor:pointer;
+font-family:inherit;
+}
+.installHelp{
+display:none;
+position:fixed;
+inset:0;
+background:rgba(0,0,0,.5);
+z-index:10000;
+align-items:center;
+justify-content:center;
+padding:20px;
+}
+.installHelp .box{
+background:#fff;
+border-radius:14px;
+padding:22px;
+max-width:340px;
+width:100%;
+text-align:left;
+}
+.installHelp h3{margin:0 0 10px;color:#14264A;font-size:17px}
+.installHelp p{font-size:13px;color:#555;line-height:1.7}
+.installHelp button{
+margin-top:14px;
+width:100%;
+padding:10px;
+border:none;
+border-radius:8px;
+background:#E9E9EB;
+font-weight:700;
+cursor:pointer;
+font-size:14px;
+font-family:inherit;
+}
 .hint{
 margin-top:16px;
 font-size:12px;
@@ -106,7 +158,16 @@ line-height:1.7;
 </head>
 <body>
 
+<div id="installHelp" class="installHelp">
+<div class="box">
+<h3>アプリとして追加する方法</h3>
+<p id="installHelpText"></p>
+<button onclick="document.getElementById('installHelp').style.display='none'">閉じる</button>
+</div>
+</div>
+
 <div class="card">
+<button class="installBtn" id="installBtn" onclick="handleInstallClick()" style="margin:0 auto 16px;">📲 アプリを追加</button>
 <h1>🛡 無事故無違反</h1>
 <p class="subtitle">安全運転の記録</p>
 
@@ -127,6 +188,53 @@ line-height:1.7;
 </div>
 
 <script>
+if("serviceWorker" in navigator){
+window.addEventListener("load", ()=>{
+navigator.serviceWorker.register("sw.js").catch(()=>{});
+});
+}
+
+let deferredInstallPrompt = null;
+const installBtn = document.getElementById("installBtn");
+
+window.addEventListener("beforeinstallprompt", (e)=>{
+e.preventDefault();
+deferredInstallPrompt = e;
+installBtn.style.display = "flex";
+});
+
+window.addEventListener("appinstalled", ()=>{
+installBtn.style.display = "none";
+deferredInstallPrompt = null;
+});
+
+function detectManualInstallText(){
+const ua = navigator.userAgent;
+const isMac = /Macintosh/.test(ua);
+const isWin = /Windows/.test(ua);
+const isSafari = /Safari/.test(ua) && !/Chrome|Chromium|Edg/.test(ua);
+if(isSafari && isMac) return "Safariのメニューバーで「ファイル」→「Dockに追加」を選んでください。(Safari 17以降)";
+if(isSafari) return "共有ボタン(□に↑のアイコン)をタップし、「ホーム画面に追加」を選んでください。";
+if(isWin || isMac) return "アドレスバー右端の「インストール」アイコンをクリックしてください。表示されない場合は、ブラウザ右上のメニュー(⋮)から「アプリをインストール」を選んでください。";
+return "ブラウザのメニューから「ホーム画面に追加」または「インストール」を選んでください。";
+}
+
+async function handleInstallClick(){
+if(deferredInstallPrompt){
+deferredInstallPrompt.prompt();
+const choice = await deferredInstallPrompt.userChoice;
+deferredInstallPrompt = null;
+if(choice.outcome === "accepted") installBtn.style.display = "none";
+return;
+}
+document.getElementById("installHelpText").textContent = detectManualInstallText();
+document.getElementById("installHelp").style.display = "flex";
+}
+
+if(!("onbeforeinstallprompt" in window)){
+installBtn.style.display = "flex";
+}
+
 const KEY_START = "bujibuihan_startDate";
 const KEY_BEST = "bujibuihan_bestStreak";
 
