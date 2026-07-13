@@ -159,6 +159,125 @@ font-size:12px;
 color:#999;
 line-height:1.7;
 }
+
+/* --- 追加分: 設定ボタン --- */
+.settingsBtn{
+display:flex;
+align-items:center;
+justify-content:center;
+background:#F0F1F4;
+color:#14264A;
+border:none;
+border-radius:999px;
+width:38px;
+height:38px;
+font-size:17px;
+cursor:pointer;
+position:absolute;
+top:14px;
+left:14px;
+box-shadow:0 4px 10px rgba(0,0,0,.1);
+padding:0;
+}
+
+/* --- 追加分: 履歴リンク --- */
+.historyLink{
+display:inline-block;
+margin-top:14px;
+font-size:12.5px;
+color:#0b63ce;
+background:none;
+border:none;
+padding:0;
+width:auto;
+cursor:pointer;
+font-weight:700;
+text-decoration:underline;
+font-family:inherit;
+}
+
+/* --- 追加分: 汎用モーダル(設定・履歴共通) --- */
+.modalOverlay{
+display:none;
+position:fixed;
+inset:0;
+background:rgba(0,0,0,.5);
+z-index:10000;
+align-items:center;
+justify-content:center;
+padding:20px;
+}
+.modalOverlay .box{
+background:#fff;
+border-radius:14px;
+padding:22px;
+max-width:360px;
+width:100%;
+text-align:left;
+max-height:80vh;
+overflow-y:auto;
+}
+.modalOverlay h3{margin:0 0 14px;color:#14264A;font-size:17px}
+.modalOverlay label{
+display:block;
+font-size:13px;
+color:#555;
+margin-bottom:6px;
+font-weight:700;
+}
+.modalOverlay input[type="date"]{
+width:100%;
+padding:10px;
+border:1px solid #ddd;
+border-radius:8px;
+font-size:15px;
+box-sizing:border-box;
+font-family:inherit;
+margin-bottom:16px;
+}
+.modalBtnRow{
+display:flex;
+gap:8px;
+}
+.modalBtnRow button{
+padding:11px;
+font-size:14px;
+}
+.saveBtn{
+background:#14264A;
+color:#fff;
+}
+.closeBtn{
+background:#E9E9EB;
+color:#222;
+}
+.historyEmpty{
+font-size:13px;
+color:#999;
+text-align:center;
+padding:20px 0;
+}
+.historyItem{
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:12px 4px;
+border-bottom:1px solid #F0F0F0;
+font-size:13.5px;
+}
+.historyItem:last-child{border-bottom:none;}
+.historyItem .hDate{color:#555;}
+.historyItem .hDays{
+font-weight:800;
+color:#E0483E;
+}
+.historyClearBtn{
+margin-top:12px;
+background:#F5F5F7;
+color:#999;
+font-size:12px;
+padding:9px;
+}
 </style>
 </head>
 <body>
@@ -171,7 +290,33 @@ line-height:1.7;
 </div>
 </div>
 
+<!-- 追加分: 設定モーダル -->
+<div id="settingsModal" class="modalOverlay">
+<div class="box">
+<h3>⚙️ 設定</h3>
+<label for="startDateInput">記録開始日（基準日）を合わせる</label>
+<input type="date" id="startDateInput">
+<div class="modalBtnRow">
+<button class="closeBtn" onclick="closeSettings()">キャンセル</button>
+<button class="saveBtn" onclick="saveSettings()">保存</button>
+</div>
+</div>
+</div>
+
+<!-- 追加分: 履歴モーダル -->
+<div id="historyModal" class="modalOverlay">
+<div class="box">
+<h3>📋 リセット履歴</h3>
+<div id="historyList"></div>
+<button class="historyClearBtn" onclick="clearHistory()">履歴を全て削除</button>
+<div class="modalBtnRow" style="margin-top:10px;">
+<button class="closeBtn" onclick="closeHistory()">閉じる</button>
+</div>
+</div>
+</div>
+
 <div class="card">
+<button class="settingsBtn" id="settingsBtn" onclick="openSettings()">⚙️</button>
 <button class="installBtn" id="installBtn" onclick="handleInstallClick()">📲 アプリ追加</button>
 <h1>🛡 無事故無違反</h1>
 <p class="subtitle">安全運転の記録</p>
@@ -190,6 +335,7 @@ line-height:1.7;
 
 <button class="resetBtn" onclick="resetCounter()">事故・違反が発生した(記録をリセット)</button>
 <p class="hint">記録はこの端末のブラウザに保存されます。<br>他のパソコンやスマホとは共有されません。</p>
+<button class="historyLink" onclick="openHistory()">📋 リセット履歴を見る</button>
 </div>
 
 <script>
@@ -242,6 +388,7 @@ installBtn.style.display = "flex";
 
 const KEY_START = "bujibuihan_startDate";
 const KEY_BEST = "bujibuihan_bestStreak";
+const KEY_HISTORY = "bujibuihan_history"; // 追加分: リセット履歴
 
 function todayDateOnly(){
 const d = new Date();
@@ -287,9 +434,81 @@ bestCount.textContent = best + "日";
 
 function resetCounter(){
 if(!confirm("記録をリセットして、今日から数え直しますか？")) return;
-const today = todayDateOnly().toISOString().slice(0,10);
-localStorage.setItem(KEY_START, today);
+
+// 追加分: リセット前の達成日数を履歴に記録
+const start = getStartDate();
+const today = todayDateOnly();
+const daysAchieved = Math.max(0, daysBetween(start, today));
+addHistoryEntry(today.toISOString().slice(0,10), daysAchieved);
+
+const todayStr = today.toISOString().slice(0,10);
+localStorage.setItem(KEY_START, todayStr);
 updateDisplay();
+}
+
+/* ===== 追加分: 設定（日付合わせ） ===== */
+function openSettings(){
+const start = getStartDate();
+document.getElementById("startDateInput").value = start.toISOString().slice(0,10);
+document.getElementById("settingsModal").style.display = "flex";
+}
+
+function closeSettings(){
+document.getElementById("settingsModal").style.display = "none";
+}
+
+function saveSettings(){
+const val = document.getElementById("startDateInput").value;
+if(!val){
+alert("日付を選択してください");
+return;
+}
+localStorage.setItem(KEY_START, val);
+updateDisplay();
+closeSettings();
+}
+
+/* ===== 追加分: リセット履歴 ===== */
+function getHistory(){
+try{
+return JSON.parse(localStorage.getItem(KEY_HISTORY) || "[]");
+}catch(e){
+return [];
+}
+}
+
+function addHistoryEntry(dateStr, days){
+const history = getHistory();
+history.unshift({date: dateStr, days: days});
+localStorage.setItem(KEY_HISTORY, JSON.stringify(history));
+}
+
+function renderHistory(){
+const history = getHistory();
+const listEl = document.getElementById("historyList");
+if(history.length === 0){
+listEl.innerHTML = '<div class="historyEmpty">まだリセット履歴はありません</div>';
+return;
+}
+listEl.innerHTML = history.map(item=>{
+const d = new Date(item.date + "T00:00:00");
+return '<div class="historyItem"><span class="hDate">' + formatDate(d) + '</span><span class="hDays">' + item.days + '日 達成</span></div>';
+}).join("");
+}
+
+function openHistory(){
+renderHistory();
+document.getElementById("historyModal").style.display = "flex";
+}
+
+function closeHistory(){
+document.getElementById("historyModal").style.display = "none";
+}
+
+function clearHistory(){
+if(!confirm("リセット履歴を全て削除しますか？この操作は取り消せません。")) return;
+localStorage.removeItem(KEY_HISTORY);
+renderHistory();
 }
 
 updateDisplay();
