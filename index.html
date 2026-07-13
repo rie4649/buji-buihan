@@ -117,6 +117,7 @@ font-weight:700;
 cursor:pointer;
 font-family:inherit;
 position:absolute;
+width:auto;
 top:14px;
 right:14px;
 box-shadow:0 4px 10px rgba(11,99,206,.35);
@@ -388,7 +389,7 @@ installBtn.style.display = "flex";
 
 const KEY_START = "bujibuihan_startDate";
 const KEY_BEST = "bujibuihan_bestStreak";
-const KEY_HISTORY = "bujibuihan_history"; // 追加分: リセット履歴
+const KEY_HISTORY = "bujibuihan_history";
 
 function todayDateOnly(){
 const d = new Date();
@@ -435,7 +436,6 @@ bestCount.textContent = best + "日";
 function resetCounter(){
 if(!confirm("記録をリセットして、今日から数え直しますか？")) return;
 
-// 追加分: リセット前の達成日数を履歴に記録
 const start = getStartDate();
 const today = todayDateOnly();
 const daysAchieved = Math.max(0, daysBetween(start, today));
@@ -446,7 +446,6 @@ localStorage.setItem(KEY_START, todayStr);
 updateDisplay();
 }
 
-/* ===== 追加分: 設定（日付合わせ） ===== */
 function openSettings(){
 const start = getStartDate();
 document.getElementById("startDateInput").value = start.toISOString().slice(0,10);
@@ -468,7 +467,6 @@ updateDisplay();
 closeSettings();
 }
 
-/* ===== 追加分: リセット履歴 ===== */
 function getHistory(){
 try{
 return JSON.parse(localStorage.getItem(KEY_HISTORY) || "[]");
