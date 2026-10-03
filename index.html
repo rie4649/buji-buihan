@@ -272,6 +272,16 @@ font-size:13.5px;
 font-weight:800;
 color:#E0483E;
 }
+.modalOverlay input[type="number"], .modalOverlay input[type="text"]{
+width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;font-family:inherit;margin-bottom:16px;
+}
+.modalNote{font-size:12px;color:#888;margin:-10px 0 14px;line-height:1.6;}
+.calcBox{background:#FFF4E5;border-radius:10px;padding:10px 12px;font-size:14px;color:#8a4b00;margin-bottom:16px;font-weight:700;}
+.historyItem .hMain{display:flex;flex-direction:column;gap:2px;}
+.historyItem .hSub{font-size:11.5px;color:#999;}
+.historyItem .hRight{display:flex;align-items:center;gap:8px;}
+.hDel{width:auto;padding:4px 8px;font-size:12px;background:#F5F5F7;color:#999;border-radius:6px;}
+.addPastBtn{margin-top:12px;background:#EEF4FF;color:#0b63ce;font-size:13px;padding:10px;}
 .historyClearBtn{
 margin-top:12px;
 background:#F5F5F7;
@@ -304,11 +314,49 @@ padding:9px;
 </div>
 </div>
 
+<!-- 事故・違反の記録(日付を選んでリセット) -->
+<div id="resetModal" class="modalOverlay">
+<div class="box">
+<h3>⚠️ 事故・違反の記録</h3>
+<label for="resetDateInput">事故・違反があった日</label>
+<input type="date" id="resetDateInput" oninput="updateResetCalc()">
+<div class="modalNote">入力するのが後になった時も、実際にあった日を選べます。この日から数え直します。</div>
+<div class="calcBox" id="resetCalc"></div>
+<label for="resetMemoInput">メモ(任意)</label>
+<input type="text" id="resetMemoInput" placeholder="例:駐車場で接触">
+<div class="modalBtnRow">
+<button class="closeBtn" onclick="closeReset()">キャンセル</button>
+<button class="saveBtn" style="background:#E0483E;" onclick="saveReset()">記録してリセット</button>
+</div>
+</div>
+</div>
+
+<!-- 過去の止まった記録を手で入れる -->
+<div id="pastModal" class="modalOverlay" style="z-index:10001;">
+<div class="box">
+<h3>＋ 過去の記録を追加</h3>
+<label for="pastStartInput">数え始めた日(わかれば)</label>
+<input type="date" id="pastStartInput" oninput="updatePastCalc()">
+<label for="pastEndInput">止まった日(事故・違反があった日)</label>
+<input type="date" id="pastEndInput" oninput="updatePastCalc()">
+<label for="pastDaysInput">達成日数</label>
+<input type="number" id="pastDaysInput" inputmode="numeric" min="0" placeholder="例:105">
+<div class="modalNote">2つの日付を入れると日数は自動で入ります。日数だけわかっている時は、止まった日と日数だけでOKです。</div>
+<label for="pastMemoInput">メモ(任意)</label>
+<input type="text" id="pastMemoInput" placeholder="例:前回の記録">
+<div class="modalBtnRow">
+<button class="closeBtn" onclick="closePast()">キャンセル</button>
+<button class="saveBtn" onclick="savePast()">追加</button>
+</div>
+</div>
+</div>
+
 <!-- 追加分: 履歴モーダル -->
 <div id="historyModal" class="modalOverlay">
 <div class="box">
 <h3>📋 リセット履歴</h3>
 <div id="historyList"></div>
+<button class="addPastBtn" onclick="openPast()">＋ 過去の記録を追加(前回の105日など)</button>
 <button class="historyClearBtn" onclick="clearHistory()">履歴を全て削除</button>
 <div class="modalBtnRow" style="margin-top:10px;">
 <button class="closeBtn" onclick="closeHistory()">閉じる</button>
@@ -334,7 +382,7 @@ padding:9px;
 <strong id="bestCount">0日</strong>
 </div>
 
-<button class="resetBtn" onclick="resetCounter()">事故・違反が発生した(記録をリセット)</button>
+<button class="resetBtn" onclick="openReset()">事故・違反が発生した(記録をリセット)</button>
 <p class="hint">記録はこの端末のブラウザに保存されます。<br>他のパソコンやスマホとは共有されません。</p>
 <button class="historyLink" onclick="openHistory()">📋 リセット履歴を見る</button>
 </div>
@@ -391,6 +439,10 @@ const KEY_START = "bujibuihan_startDate";
 const KEY_BEST = "bujibuihan_bestStreak";
 const KEY_HISTORY = "bujibuihan_history";
 
+function ymdOf(d){
+return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function parseYmd(s){ return new Date(s + "T00:00:00"); }
 function todayDateOnly(){
 const d = new Date();
 d.setHours(0,0,0,0);
@@ -400,7 +452,7 @@ return d;
 function getStartDate(){
 let stored = localStorage.getItem(KEY_START);
 if(!stored){
-stored = todayDateOnly().toISOString().slice(0,10);
+stored = ymdOf(todayDateOnly());
 localStorage.setItem(KEY_START, stored);
 }
 const d = new Date(stored + "T00:00:00");
@@ -428,27 +480,70 @@ const days = Math.max(0, daysBetween(start, today));
 dayCount.textContent = days;
 startDateText.textContent = "記録開始日: " + formatDate(start);
 
-const best = Math.max(getBest(), days);
+const best = Math.max(getBest(), days, ...getHistory().map(h=>h.days||0));
 localStorage.setItem(KEY_BEST, String(best));
 bestCount.textContent = best + "日";
 }
 
-function resetCounter(){
-if(!confirm("記録をリセットして、今日から数え直しますか？")) return;
-
-const start = getStartDate();
-const today = todayDateOnly();
-const daysAchieved = Math.max(0, daysBetween(start, today));
-addHistoryEntry(today.toISOString().slice(0,10), daysAchieved);
-
-const todayStr = today.toISOString().slice(0,10);
-localStorage.setItem(KEY_START, todayStr);
+/* 事故・違反があった日を選んでリセット(入力が遅れても、実際の日から数え直せる) */
+function openReset(){
+document.getElementById("resetDateInput").value = ymdOf(todayDateOnly());
+document.getElementById("resetMemoInput").value = "";
+updateResetCalc();
+document.getElementById("resetModal").style.display = "flex";
+}
+function closeReset(){ document.getElementById("resetModal").style.display = "none"; }
+function updateResetCalc(){
+const v = document.getElementById("resetDateInput").value;
+const box = document.getElementById("resetCalc");
+if(!v){ box.textContent = "日付を選んでください"; return; }
+const start = getStartDate(), d = parseYmd(v), today = todayDateOnly();
+const days = Math.max(0, daysBetween(start, d));
+const after = Math.max(0, daysBetween(d, today));
+box.innerHTML = "今回の記録:" + formatDate(start) + "〜" + formatDate(d) + "で <b>" + days + "日</b><br>リセット後の表示:" + after + "日(" + formatDate(d) + "から数え直し)";
+}
+function saveReset(){
+const v = document.getElementById("resetDateInput").value;
+if(!v){ alert("事故・違反があった日を選んでください"); return; }
+const start = getStartDate(), d = parseYmd(v);
+if(d > todayDateOnly()){ alert("未来の日付は選べません"); return; }
+if(d < start && !confirm("記録開始日より前の日付です。このまま記録しますか？")) return;
+const days = Math.max(0, daysBetween(start, d));
+addHistoryEntry(v, days, ymdOf(start), document.getElementById("resetMemoInput").value.trim());
+localStorage.setItem(KEY_START, v);
+closeReset();
 updateDisplay();
+}
+/* 過去の止まった記録を手で追加 */
+function openPast(){
+["pastStartInput","pastEndInput","pastDaysInput","pastMemoInput"].forEach(id=>document.getElementById(id).value="");
+document.getElementById("pastModal").style.display = "flex";
+}
+function closePast(){ document.getElementById("pastModal").style.display = "none"; }
+function updatePastCalc(){
+const s = document.getElementById("pastStartInput").value, e = document.getElementById("pastEndInput").value;
+if(s && e) document.getElementById("pastDaysInput").value = Math.max(0, daysBetween(parseYmd(s), parseYmd(e)));
+}
+function savePast(){
+const s = document.getElementById("pastStartInput").value, e = document.getElementById("pastEndInput").value;
+const days = parseInt(document.getElementById("pastDaysInput").value, 10);
+if(!e){ alert("止まった日を選んでください"); return; }
+if(isNaN(days) || days < 0){ alert("達成日数を入れてください"); return; }
+addHistoryEntry(e, days, s || "", document.getElementById("pastMemoInput").value.trim());
+closePast(); renderHistory(); updateDisplay();
+}
+function deleteHistory(i){
+const h = getHistory();
+if(!h[i] || !confirm(formatDate(parseYmd(h[i].date)) + "(" + h[i].days + "日)の記録を消しますか？")) return;
+h.splice(i, 1);
+localStorage.setItem(KEY_HISTORY, JSON.stringify(h));
+localStorage.setItem(KEY_BEST, "0");   // 最長記録は履歴から計算し直す
+renderHistory(); updateDisplay();
 }
 
 function openSettings(){
 const start = getStartDate();
-document.getElementById("startDateInput").value = start.toISOString().slice(0,10);
+document.getElementById("startDateInput").value = ymdOf(start);
 document.getElementById("settingsModal").style.display = "flex";
 }
 
@@ -475,9 +570,13 @@ return [];
 }
 }
 
-function addHistoryEntry(dateStr, days){
+function addHistoryEntry(dateStr, days, startStr, memo){
 const history = getHistory();
-history.unshift({date: dateStr, days: days});
+const e = {date: dateStr, days: days};
+if(startStr) e.start = startStr;
+if(memo) e.memo = memo;
+history.push(e);
+history.sort((a,b)=> String(b.date).localeCompare(String(a.date)));   // 新しい順
 localStorage.setItem(KEY_HISTORY, JSON.stringify(history));
 }
 
@@ -488,9 +587,12 @@ if(history.length === 0){
 listEl.innerHTML = '<div class="historyEmpty">まだリセット履歴はありません</div>';
 return;
 }
-listEl.innerHTML = history.map(item=>{
-const d = new Date(item.date + "T00:00:00");
-return '<div class="historyItem"><span class="hDate">' + formatDate(d) + '</span><span class="hDays">' + item.days + '日 達成</span></div>';
+const esc = t => String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+listEl.innerHTML = history.map((item, i)=>{
+const d = parseYmd(item.date);
+const sub = [item.start ? formatDate(parseYmd(item.start)) + "〜" : "", item.memo ? esc(item.memo) : ""].filter(Boolean).join(" ");
+return '<div class="historyItem"><span class="hMain"><span class="hDate">' + formatDate(d) + ' に止まる</span>' + (sub ? '<span class="hSub">' + sub + '</span>' : '') + '</span>' +
+'<span class="hRight"><span class="hDays">' + item.days + '日 達成</span><button class="hDel" onclick="deleteHistory(' + i + ')">✕</button></span></div>';
 }).join("");
 }
 
@@ -506,7 +608,8 @@ document.getElementById("historyModal").style.display = "none";
 function clearHistory(){
 if(!confirm("リセット履歴を全て削除しますか？この操作は取り消せません。")) return;
 localStorage.removeItem(KEY_HISTORY);
-renderHistory();
+localStorage.setItem(KEY_BEST, "0");
+renderHistory(); updateDisplay();
 }
 
 updateDisplay();
