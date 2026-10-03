@@ -276,6 +276,7 @@ color:#E0483E;
 width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;font-family:inherit;margin-bottom:16px;
 }
 .modalNote{font-size:12px;color:#888;margin:-10px 0 14px;line-height:1.6;}
+.modalOverlay input[type="number"]::placeholder{font-size:13px;}
 .calcBox{background:#FFF4E5;border-radius:10px;padding:10px 12px;font-size:14px;color:#8a4b00;margin-bottom:16px;font-weight:700;}
 .historyItem .hMain{display:flex;flex-direction:column;gap:2px;}
 .historyItem .hSub{font-size:11.5px;color:#999;}
@@ -307,6 +308,9 @@ padding:9px;
 <h3>⚙️ 設定</h3>
 <label for="startDateInput">記録開始日（基準日）を合わせる</label>
 <input type="date" id="startDateInput">
+<label for="bestInput">これまでの最長記録(日)</label>
+<input type="number" id="bestInput" inputmode="numeric" min="0" placeholder="空欄なら履歴から自動で計算">
+<div class="modalNote">数字を入れると、その日数を最長記録にします。今の記録がこれを超えたら、自動で更新されます。空欄にして保存すると、履歴からの自動計算に戻ります。</div>
 <div class="modalBtnRow">
 <button class="closeBtn" onclick="closeSettings()">キャンセル</button>
 <button class="saveBtn" onclick="saveSettings()">保存</button>
@@ -438,6 +442,7 @@ installBtn.style.display = "flex";
 const KEY_START = "bujibuihan_startDate";
 const KEY_BEST = "bujibuihan_bestStreak";
 const KEY_HISTORY = "bujibuihan_history";
+const KEY_BEST_FIXED = "bujibuihan_bestFixed";   // "1" = 最長記録を手で決めた
 
 function ymdOf(d){
 return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
@@ -480,7 +485,8 @@ const days = Math.max(0, daysBetween(start, today));
 dayCount.textContent = days;
 startDateText.textContent = "記録開始日: " + formatDate(start);
 
-const best = Math.max(getBest(), days, ...getHistory().map(h=>h.days||0));
+const fixed = localStorage.getItem(KEY_BEST_FIXED) === "1";
+const best = fixed ? Math.max(getBest(), days) : Math.max(getBest(), days, ...getHistory().map(h=>h.days||0));
 localStorage.setItem(KEY_BEST, String(best));
 bestCount.textContent = best + "日";
 }
@@ -537,13 +543,14 @@ const h = getHistory();
 if(!h[i] || !confirm(formatDate(parseYmd(h[i].date)) + "(" + h[i].days + "日)の記録を消しますか？")) return;
 h.splice(i, 1);
 localStorage.setItem(KEY_HISTORY, JSON.stringify(h));
-localStorage.setItem(KEY_BEST, "0");   // 最長記録は履歴から計算し直す
+if(localStorage.getItem(KEY_BEST_FIXED) !== "1") localStorage.setItem(KEY_BEST, "0");   // 最長記録は履歴から計算し直す
 renderHistory(); updateDisplay();
 }
 
 function openSettings(){
 const start = getStartDate();
 document.getElementById("startDateInput").value = ymdOf(start);
+document.getElementById("bestInput").value = localStorage.getItem(KEY_BEST_FIXED) === "1" ? getBest() : "";
 document.getElementById("settingsModal").style.display = "flex";
 }
 
@@ -556,6 +563,16 @@ const val = document.getElementById("startDateInput").value;
 if(!val){
 alert("日付を選択してください");
 return;
+}
+const bv = document.getElementById("bestInput").value.trim();
+if(bv !== ""){
+const n = parseInt(bv, 10);
+if(isNaN(n) || n < 0){ alert("最長記録は0以上の数字で入れてください"); return; }
+localStorage.setItem(KEY_BEST, String(n));
+localStorage.setItem(KEY_BEST_FIXED, "1");
+} else {
+localStorage.removeItem(KEY_BEST_FIXED);
+localStorage.setItem(KEY_BEST, "0");   // 履歴と今の記録から計算し直す
 }
 localStorage.setItem(KEY_START, val);
 updateDisplay();
@@ -608,7 +625,7 @@ document.getElementById("historyModal").style.display = "none";
 function clearHistory(){
 if(!confirm("リセット履歴を全て削除しますか？この操作は取り消せません。")) return;
 localStorage.removeItem(KEY_HISTORY);
-localStorage.setItem(KEY_BEST, "0");
+if(localStorage.getItem(KEY_BEST_FIXED) !== "1") localStorage.setItem(KEY_BEST, "0");
 renderHistory(); updateDisplay();
 }
 
